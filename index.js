@@ -5,12 +5,14 @@ const mongoose = require("mongoose");
 const connection = require("./config/database");
 const authRoute = require("./routes/auth");
 const authUser = require("./routes/user");
+const authPost = require("./routes/posts");
 const PORT = process.env.PORT || 8888;
 
 app.use(express.json());
 
 app.use("/auth", authRoute);
-app.use("/user", authUser);
+app.use("/users", authUser);
+app.use("/posts", authPost);
 
 (async () => {
   try {

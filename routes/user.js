@@ -57,7 +57,7 @@ router.get("/:id", async (req, res) => {
     const { password, ...other } = user._doc;
     res.status(200).json(other);
   } catch (error) {
-    res.status(400).json(other);
+    res.status(400).json(error);
   }
 });
 
