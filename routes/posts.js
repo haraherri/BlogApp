@@ -88,8 +88,8 @@ router.get("/:id", async (req, res) => {
   }
 });
 router.get("/", async (req, res) => {
-  const page = parseInt(req.query.page) || 1; // Trang hiện tại, mặc định là 1
-  const limit = parseInt(req.query.limit) || 10; // Số bài đăng trên mỗi trang, mặc định là 10
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
   const startIndex = (page - 1) * limit;
   const endIndex = page * limit;
 
@@ -98,7 +98,7 @@ router.get("/", async (req, res) => {
     const posts = await Post.find()
       .skip(startIndex)
       .limit(limit)
-      .sort({ createdAt: -1 }); // Sắp xếp theo thời gian tạo, mới nhất trước
+      .sort({ createdAt: -1 });
 
     const paginationInfo = {};
     if (endIndex < totalPosts) {
