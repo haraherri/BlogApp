@@ -19,10 +19,12 @@ const postSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    categories: {
-      type: Array,
-      require: false,
-    },
+    categories: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Category",
+      },
+    ],
   },
   { timestamps: true }
 );

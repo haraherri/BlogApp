@@ -2,30 +2,52 @@ const router = require("express").Router();
 const bcrypt = require("bcrypt");
 const Post = require("../models/post");
 const User = require("../models/user");
-
+const path = require("path");
+const fs = require("fs");
+const upload = require("../middleware/uploadMiddleware");
 //update user
-router.put("/:id", async (req, res) => {
+router.put("/:id", upload.single("profilePic"), async (req, res) => {
   if (req.body.userId === req.params.id) {
-    if (req.body.password) {
-      const salt = await bcrypt.genSalt(10);
-      req.body.password = await bcrypt.hash(req.body.password, salt);
-    }
     try {
+      let updateData = req.body;
+
+      if (req.body.password) {
+        const salt = await bcrypt.genSalt(10);
+        updateData.password = await bcrypt.hash(req.body.password, salt);
+      }
+
+      if (req.file) {
+        updateData.profilePic = `/uploads/${req.file.filename}`;
+
+        const currentUser = await User.findById(req.params.id);
+        if (currentUser.profilePic && currentUser.profilePic !== "") {
+          const oldImagePath = path.join(
+            __dirname,
+            "..",
+            currentUser.profilePic
+          );
+          if (fs.existsSync(oldImagePath)) {
+            fs.unlinkSync(oldImagePath);
+          }
+        }
+      }
+
       const updateUser = await User.findByIdAndUpdate(
         req.params.id,
-        {
-          $set: req.body,
-        },
-        {
-          new: true,
-        }
+        { $set: updateData },
+        { new: true }
       );
+
+      updateUser.password = undefined;
+
       res.status(200).json(updateUser);
     } catch (error) {
-      res.status(500).json(error);
+      res
+        .status(500)
+        .json({ message: "Error updating user", error: error.message });
     }
   } else {
-    res.status(401).json("You can't update your account");
+    res.status(401).json("You can update only your account");
   }
 });
 

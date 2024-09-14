@@ -1,6 +1,7 @@
 const router = require("express").Router();
 const Post = require("../models/post");
 const User = require("../models/user");
+const Category = require("../models/category");
 
 router.post("/", async (req, res) => {
   try {
@@ -11,8 +12,22 @@ router.post("/", async (req, res) => {
         message: "User not found. Cannot create post for non-existent user.",
       });
     }
+    let categoryIds = [];
+    if (req.body.categories && req.body.categories.length > 0) {
+      for (let categoryName of req.body.categories) {
+        let category = await Category.findOne({ name: categoryName });
 
-    const newPost = new Post(req.body);
+        if (!category) {
+          category = new Category({ name: categoryName });
+          await category.save();
+        }
+        categoryIds.push(category._id);
+      }
+    }
+    const newPost = new Post({
+      ...req.body,
+      categories: categoryIds,
+    });
     const savedPost = await newPost.save();
     res.status(201).json(savedPost);
   } catch (error) {
@@ -33,6 +48,20 @@ router.put("/:id", async (req, res) => {
     const post = await Post.findById(req.params.id);
     if (post.username === req.body.username) {
       try {
+        // Xử lý categories nếu có
+        if (req.body.categories) {
+          let categoryIds = [];
+          for (let categoryName of req.body.categories) {
+            let category = await Category.findOne({ name: categoryName });
+            if (!category) {
+              category = new Category({ name: categoryName });
+              await category.save();
+            }
+            categoryIds.push(category._id);
+          }
+          req.body.categories = categoryIds;
+        }
+
         const updatePost = await Post.findByIdAndUpdate(
           req.params.id,
           {
@@ -85,6 +114,14 @@ router.get("/:id", async (req, res) => {
     res.status(200).json(post);
   } catch (error) {
     res.status(404).json("Post not found!");
+  }
+});
+router.get("/:id", async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id).populate("categories");
+    res.status(200).json(post);
+  } catch (error) {
+    res.status(500).json(error);
   }
 });
 router.get("/", async (req, res) => {
