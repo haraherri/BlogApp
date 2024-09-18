@@ -15,8 +15,9 @@ const postSchema = new mongoose.Schema(
       type: String,
       required: false,
     },
-    username: {
-      type: String,
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
       required: true,
     },
     categories: [
