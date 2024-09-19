@@ -1,6 +1,8 @@
 const Post = require("../models/post");
 const User = require("../models/user");
 const Category = require("../models/category");
+const path = require("path");
+const fs = require("fs");
 
 const postController = {
   async createPost(req, res) {
@@ -13,8 +15,17 @@ const postController = {
       }
 
       let categoryIds = [];
-      if (req.body.categories && req.body.categories.length > 0) {
-        for (let categoryName of req.body.categories) {
+      if (req.body.categories) {
+        let categoryNames = Array.isArray(req.body.categories)
+          ? req.body.categories
+          : req.body.categories.split(",").map((cat) => cat.trim());
+
+        for (let categoryName of categoryNames) {
+          if (categoryName.length < 2) {
+            return res.status(400).json({
+              message: "Each category name must be at least 2 characters long.",
+            });
+          }
           let category = await Category.findOne({ name: categoryName });
           if (!category) {
             category = new Category({ name: categoryName });
@@ -24,10 +35,15 @@ const postController = {
         }
       }
 
+      let photos = [];
+      if (req.files && req.files.length > 0) {
+        photos = req.files.map((file) => `/uploads/${file.filename}`);
+      }
+
       const newPost = new Post({
         title: req.body.title,
         desc: req.body.desc,
-        photo: req.body.photo,
+        photos: photos,
         userId: req.user.id,
         categories: categoryIds,
       });
@@ -53,32 +69,64 @@ const postController = {
         return res.status(404).json({ message: "Post not found!" });
       }
 
-      if (post.userId.toString() === req.user.id || req.user.role === "admin") {
-        if (req.body.categories) {
-          let categoryIds = [];
-          for (let categoryName of req.body.categories) {
-            let category = await Category.findOne({ name: categoryName });
-            if (!category) {
-              category = new Category({ name: categoryName });
-              await category.save();
-            }
-            categoryIds.push(category._id);
-          }
-          req.body.categories = categoryIds;
-        }
-        const updatePost = await Post.findByIdAndUpdate(
-          req.params.id,
-          { $set: req.body },
-          { new: true }
-        );
-        res.status(200).json(updatePost);
-      } else {
-        res.status(403).json("You can only update your own posts!");
+      if (post.userId.toString() !== req.user.id && req.user.role !== "admin") {
+        return res.status(403).json("You can only update your own posts!");
       }
+
+      let updateData = { ...req.body };
+
+      // Xử lý categories
+      if (req.body.categories) {
+        let categoryNames = Array.isArray(req.body.categories)
+          ? req.body.categories
+          : req.body.categories.split(",").map((cat) => cat.trim());
+
+        let categoryIds = [];
+        for (let categoryName of categoryNames) {
+          if (categoryName.length < 2) {
+            return res.status(400).json({
+              message: "Each category name must be at least 2 characters long.",
+            });
+          }
+          let category = await Category.findOne({ name: categoryName });
+          if (!category) {
+            category = new Category({ name: categoryName });
+            await category.save();
+          }
+          categoryIds.push(category._id);
+        }
+        updateData.categories = categoryIds;
+      }
+
+      // Xử lý file uploads
+      if (req.files && req.files.length > 0) {
+        const newPhotos = req.files.map((file) => `/uploads/${file.filename}`);
+
+        // Xóa các file cũ
+        if (post.photos && post.photos.length > 0) {
+          post.photos.forEach((photo) => {
+            const oldImagePath = path.join(__dirname, "..", photo);
+            if (fs.existsSync(oldImagePath)) {
+              fs.unlinkSync(oldImagePath);
+            }
+          });
+        }
+
+        updateData.photos = newPhotos;
+      }
+
+      const updatedPost = await Post.findByIdAndUpdate(
+        req.params.id,
+        { $set: updateData },
+        { new: true }
+      );
+
+      res.status(200).json(updatedPost);
     } catch (error) {
-      res
-        .status(500)
-        .json({ message: "Error updating post", error: error.message });
+      res.status(500).json({
+        message: "Error updating post",
+        error: error.message,
+      });
     }
   },
 
